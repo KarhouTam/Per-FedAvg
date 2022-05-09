@@ -53,7 +53,7 @@ python main.py
 
 `--dataset`: Name of experiment dataset. Default: `mnist`
 
-`--fraction`: Fraction of clients for training in all clients. Default: `0.9`
+`--fraction`: Percentage of training clients in all alients. Default: `0.9`
 
 `--client_num_per_round`: Num of clients that participating training at each communication round. Default: `5`
 
@@ -67,7 +67,7 @@ python main.py
 
 `--eval_while_training`: Non-zero value for performing evaluation while in training phase. Default: `1`
 
-`--valset_ratio`: Fraction of validation set in client dataset. Default: `0.1`
+`--valset_ratio`: Percentage of validation set in client local dataset. Default: `0.1`
 
 `--hf`: Non-zero value for performing Per-FedAvg(HF); `0` for Per-FedAvg(FO). Default: `1`
 
