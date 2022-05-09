@@ -175,18 +175,3 @@ class PerFedAvgClient:
             grads = torch.autograd.grad(loss, model.parameters())
             return grads
 
-    def get_data_batch(self, evaluation=False) -> Tuple[torch.Tensor, torch.Tensor]:
-        if evaluation:
-            try:
-                x, y = next(self.iter_valloader)
-            except StopIteration:
-                self.iter_valloader = iter(self.valloader)
-                x, y = next(self.iter_valloader)
-        else:
-            try:
-                x, y = next(self.iter_trainloader)
-            except StopIteration:
-                self.iter_trainloader = iter(self.trainloader)
-                x, y = next(self.iter_trainloader)
-
-        return x.to(self.device), y.to(self.device)
