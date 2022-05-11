@@ -1,7 +1,7 @@
 import torch
 import utils
 from copy import deepcopy
-from typing import Dict, Optional, OrderedDict, Tuple
+from typing import Dict, Optional, Tuple
 from collections import OrderedDict
 from data import get_dataloader
 from fedlab.utils.serialization import SerializationTool
@@ -92,18 +92,24 @@ class PerFedAvgClient:
                 frz_model_params = deepcopy(self.model.state_dict())
 
                 data_batch_1 = utils.get_data_batch(dataloader, iterator, self.device)
-                grads = self.compute_grad(self.model, data_batch_1, False)
+                grads = self.compute_grad(
+                    self.model, data_batch_1, second_order_grads=False
+                )
                 for param, grad in zip(self.model.parameters(), grads):
                     param.data.sub_(self.alpha * grad)
 
                 data_batch_2 = utils.get_data_batch(dataloader, iterator, self.device)
-                grads_1st = self.compute_grad(self.model, data_batch_2, False)
+                grads_1st = self.compute_grad(
+                    self.model, data_batch_2, second_order_grads=False
+                )
 
                 data_batch_3 = utils.get_data_batch(dataloader, iterator, self.device)
 
                 self.model.load_state_dict(frz_model_params)
 
-                grads_2nd = self.compute_grad(self.model, data_batch_3, True)
+                grads_2nd = self.compute_grad(
+                    self.model, data_batch_3, second_order_grads=True
+                )
                 for g1, g2, param in zip(grads_1st, grads_2nd, self.model.parameters()):
                     final_grad = self.beta * (1.0 - g2) * g1
                     param.data.sub_(final_grad)
@@ -142,15 +148,12 @@ class PerFedAvgClient:
         if second_order_grads:
             frz_model_params = deepcopy(model.state_dict())
             delta = 1e-3
-            logit = model(x)
-            loss = self.criterion(logit, y)
-            grads = torch.autograd.grad(loss, model.parameters())
             dummy_model_params_1 = OrderedDict()
             dummy_model_params_2 = OrderedDict()
             with torch.no_grad():
-                for (layer_name, param), grad in zip(model.named_parameters(), grads):
-                    dummy_model_params_1.update({layer_name: param + delta * 1})
-                    dummy_model_params_2.update({layer_name: param - delta * 1})
+                for layer_name, param in model.named_parameters():
+                    dummy_model_params_1.update({layer_name: param + delta})
+                    dummy_model_params_2.update({layer_name: param - delta})
 
             model.load_state_dict(dummy_model_params_1, strict=False)
             logit_1 = model(x)
