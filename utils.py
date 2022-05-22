@@ -17,7 +17,6 @@ def get_args() -> Namespace:
     parser.add_argument(
         "--dataset", type=str, choices=["mnist", "cifar"], default="mnist"
     )
-    parser.add_argument("--fraction", type=float, default=0.9)
     parser.add_argument("--client_num_per_round", type=int, default=10)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--gpu", type=int, default=1)
