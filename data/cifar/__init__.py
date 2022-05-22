@@ -2,7 +2,7 @@ import os
 import pickle
 from path import Path
 from torch.utils.data import DataLoader
-from .cifar import CIFARDataset
+from .preprocess import CIFARDataset
 from torch.utils.data import random_split
 
 current_dir = Path(__file__).parent.abspath()

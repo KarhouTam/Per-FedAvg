@@ -9,6 +9,12 @@ from model import get_model
 from perfedavg import PerFedAvgClient
 from data import get_client_id_indices
 
+# ================== Can not remove these modules ===================
+# these modules are imported for pickles.load deserializing properly.
+from data.cifar import CIFARDataset
+from data.mnist import MNISTDataset
+# ===================================================================
+
 if __name__ == "__main__":
     args = get_args()
     init_random_seed(args.seed)
@@ -22,7 +28,7 @@ if __name__ == "__main__":
     logger = Console(record=True)
     logger.log(log_locals=True)
     clients_4_training, clients_4_eval, client_num_in_total = get_client_id_indices(
-        args.dataset, args.fraction
+        args.dataset
     )
 
     # init clients

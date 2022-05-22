@@ -7,14 +7,26 @@ from fedlab.utils.dataset.slicing import noniid_slicing
 from torchvision.datasets import MNIST
 from torchvision import transforms
 from path import Path
-from mnist import MNISTDataset
 
 current_dir = Path(__file__).parent.abspath()
+
+import torch
+from torch.utils.data import Dataset
+
+class MNISTDataset(Dataset):
+    def __init__(self, subset) -> None:
+        self.data = torch.stack(list(map(lambda tup: tup[0], subset)))
+        self.targets = torch.stack(list(map(lambda tup: torch.tensor(tup[1]), subset)))
+
+    def __getitem__(self, index):
+        return self.data[index], self.targets[index]
+
+    def __len__(self):
+        return len(self.targets)
 
 
 def preprocess(args):
     pickles_dir = current_dir / "pickles"
-    raw_data_dir = current_dir / "raw_data"
     np.random.seed(args.seed)
     if os.path.isdir(pickles_dir):
         os.system(f"rm -rf {pickles_dir}")
@@ -24,7 +36,7 @@ def preprocess(args):
     num_test_clients = args.client_num_in_total - num_train_clients
 
     mnist_train = MNIST(
-        raw_data_dir,
+        current_dir,
         train=True,
         transform=transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize(0.0, 1.0)]
@@ -32,7 +44,7 @@ def preprocess(args):
         download=True,
     )
     mnist_test = MNIST(
-        raw_data_dir,
+        current_dir,
         train=False,
         transform=transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize(0.0, 1.0)]
@@ -58,13 +70,22 @@ def preprocess(args):
     for client_id, dataset in enumerate(all_datasets):
         with open(pickles_dir / str(client_id) + ".pkl", "wb") as f:
             pickle.dump(dataset, f)
+    with open(pickles_dir / "seperation.pkl", "wb") as f:
+        pickle.dump(
+            {
+                "train": [i for i in range(num_train_clients)],
+                "test": [i for i in range(num_train_clients, args.client_num_in_total)],
+                "total": args.client_num_in_total,
+            },
+            f,
+        )
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--client_num_in_total", type=int, default=100)
+    parser.add_argument("--client_num_in_total", type=int, default=200)
     parser.add_argument(
-        "--fraction", type=float, default=0.8, help="Propotion of train clients"
+        "--fraction", type=float, default=0.9, help="Propotion of train clients"
     )
     parser.add_argument(
         "--classes",

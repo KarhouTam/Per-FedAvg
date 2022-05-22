@@ -1,7 +1,7 @@
+import pickle
 from .mnist import get_mnist_dataloader
 from .cifar import get_cifar_dataloader
 from path import Path
-import os
 
 FUNC_DICT = {
     "mnist": get_mnist_dataloader,
@@ -17,13 +17,8 @@ def get_dataloader(dataset, client_id, batch_size=10, valset_ratio=0.1):
     return FUNC_DICT[dataset](client_id, batch_size, valset_ratio)
 
 
-def get_client_id_indices(dataset, fraction):
+def get_client_id_indices(dataset):
     dataset_pickles_path = CURRENT_PATH / dataset / "pickles"
-    client_num_in_total = len(os.listdir(dataset_pickles_path))
-    clients_num_4_training = int(client_num_in_total * fraction)
-    return (
-        [i for i in range(clients_num_4_training)],
-        [i for i in range(clients_num_4_training, client_num_in_total)],
-        client_num_in_total,
-    )
-
+    with open(dataset_pickles_path / "seperation.pkl", "rb") as f:
+        seperation = pickle.load(f)
+    return (seperation["train"], seperation["test"], seperation["total"])
