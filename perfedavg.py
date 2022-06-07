@@ -1,7 +1,8 @@
+import rich
 import torch
 import utils
 from copy import deepcopy
-from typing import Dict, Optional, Tuple
+from typing import Tuple, Union
 from collections import OrderedDict
 from data import get_dataloader
 from fedlab.utils.serialization import SerializationTool
@@ -10,18 +11,18 @@ from fedlab.utils.serialization import SerializationTool
 class PerFedAvgClient:
     def __init__(
         self,
-        client_id,
-        alpha,
-        beta,
-        global_model,
-        criterion,
-        batch_size,
-        dataset,
-        local_epochs,
-        valset_ratio,
-        logger,
-        gpu,
-    ) -> None:
+        client_id: int,
+        alpha: float,
+        beta: float,
+        global_model: torch.nn.Module,
+        criterion: Union[torch.nn.CrossEntropyLoss, torch.nn.MSELoss],
+        batch_size: int,
+        dataset: str,
+        local_epochs: int,
+        valset_ratio: float,
+        logger: rich.console.Console,
+        gpu: int,
+    ):
         if gpu and torch.cuda.is_available():
             self.device = torch.device("cuda")
         else:
@@ -38,23 +39,19 @@ class PerFedAvgClient:
             dataset, client_id, batch_size, valset_ratio
         )
         self.iter_trainloader = iter(self.trainloader)
-        self.iter_valloader = iter(self.valloader)
 
     def train(
         self,
-        global_model,
-        epochs=None,
+        global_model: torch.nn.Module,
         hessian_free=False,
         eval_while_training=False,
-        evaluation=False,
-    ) -> Tuple[OrderedDict, Optional[Dict]]:
+    ):
         self.model.load_state_dict(global_model.state_dict())
         if eval_while_training:
             loss_before, acc_before = utils.eval(
                 self.model, self.valloader, self.criterion, self.device
             )
-        _epochs = self.local_epochs if epochs is None else epochs
-        self._train(_epochs, hessian_free, evaluation)
+        self._train(hessian_free)
 
         if eval_while_training:
             loss_after, acc_after = utils.eval(
@@ -63,87 +60,63 @@ class PerFedAvgClient:
             self.logger.log(
                 f"client [{self.id}] [red]loss: (before) {loss_before:.4f} (after) {loss_after:.4f}   [green]acc: (before) {(acc_before * 100.0):.2f}% (after) {(acc_after * 100.0):.2f}%"
             )
-        if eval_while_training:
-            return (
-                SerializationTool.serialize_model(self.model),
-                {
-                    "loss_before": loss_before,
-                    "acc_before": acc_before,
-                    "loss_after": loss_after,
-                    "acc_after": acc_after,
-                },
-            )
-        else:
-            return SerializationTool.serialize_model(self.model), None
+        return SerializationTool.serialize_model(self.model)
 
-    def _train(self, epochs, hessian_free=False, evaluation=False) -> None:
-        if epochs <= 0:
-            return
-
-        if evaluation:
-            dataloader = self.valloader
-            iterator = self.iter_valloader
-        else:
-            dataloader = self.trainloader
-            iterator = self.iter_trainloader
-
+    def _train(self, hessian_free=False):
         if hessian_free:  # Per-FedAvg(HF)
-            for _ in range(epochs):
-                frz_model_params = deepcopy(self.model.state_dict())
-
-                data_batch_1 = utils.get_data_batch(dataloader, iterator, self.device)
-                grads = self.compute_grad(
-                    self.model, data_batch_1, second_order_grads=False
+            for _ in range(self.local_epochs):
+                temp_model = deepcopy(self.model)
+                data_batch_1 = utils.get_data_batch(
+                    self.trainloader, self.iter_trainloader, self.device
                 )
-                for param, grad in zip(self.model.parameters(), grads):
+                grads = self.compute_grad(temp_model, data_batch_1)
+                for param, grad in zip(temp_model.parameters(), grads):
                     param.data.sub_(self.alpha * grad)
 
-                data_batch_2 = utils.get_data_batch(dataloader, iterator, self.device)
-                grads_1st = self.compute_grad(
-                    self.model, data_batch_2, second_order_grads=False
+                data_batch_2 = utils.get_data_batch(
+                    self.trainloader, self.iter_trainloader, self.device
                 )
+                grads_1st = self.compute_grad(temp_model, data_batch_2)
 
-                data_batch_3 = utils.get_data_batch(dataloader, iterator, self.device)
-
-                self.model.load_state_dict(frz_model_params)
+                data_batch_3 = utils.get_data_batch(
+                    self.trainloader, self.iter_trainloader, self.device
+                )
 
                 grads_2nd = self.compute_grad(
-                    self.model, data_batch_3, second_order_grads=True
+                    self.model, data_batch_3, v=grads_1st, second_order_grads=True
                 )
-                for g1, g2, param in zip(grads_1st, grads_2nd, self.model.parameters()):
-                    final_grad = self.beta * (1.0 - g2) * g1
-                    param.data.sub_(final_grad)
+
+                for param, grad1, grad2 in zip(
+                    self.model.parameters(), grads_1st, grads_2nd
+                ):
+                    param.data.sub_(self.beta * grad1 - self.beta * self.alpha * grad2)
+
         else:  # Per-FedAvg(FO)
-            for _ in range(epochs):
-                frz_model_params = deepcopy(self.model.state_dict())
+            for _ in range(self.local_epochs):
+                temp_model = deepcopy(self.model)
+                data_batch_1 = utils.get_data_batch(
+                    self.trainloader, self.iter_trainloader, self.device
+                )
+                grads = self.compute_grad(temp_model, data_batch_1)
 
-                data_batch_1 = utils.get_data_batch(dataloader, iterator, self.device)
-                grads = self.compute_grad(self.model, data_batch_1, False)
-
-                for param, grad in zip(self.model.parameters(), grads):
+                for param, grad in zip(temp_model.parameters(), grads):
                     param.data.sub_(self.alpha * grad)
 
-                data_batch_2 = utils.get_data_batch(dataloader, iterator, self.device)
-                grads = self.compute_grad(self.model, data_batch_2, False)
-
-                self.model.load_state_dict(frz_model_params)
+                data_batch_2 = utils.get_data_batch(
+                    self.trainloader, self.iter_trainloader, self.device
+                )
+                grads = self.compute_grad(temp_model, data_batch_2)
 
                 for param, grad in zip(self.model.parameters(), grads):
                     param.data.sub_(self.beta * grad)
 
-    def eval(self, global_model, pers_epochs, hessian_free=False) -> Dict:
-        _, stats = self.train(
-            global_model,
-            epochs=pers_epochs,
-            hessian_free=hessian_free,
-            eval_while_training=True,
-            evaluation=True,
-        )
-        return stats
-
     def compute_grad(
-        self, model, data_batch, second_order_grads=False
-    ) -> Tuple[torch.Tensor]:
+        self,
+        model: torch.nn.Module,
+        data_batch: Tuple[torch.Tensor, torch.Tensor],
+        v: Union[Tuple[torch.Tensor, ...], None] = None,
+        second_order_grads=False,
+    ):
         x, y = data_batch
         if second_order_grads:
             frz_model_params = deepcopy(model.state_dict())
@@ -151,30 +124,64 @@ class PerFedAvgClient:
             dummy_model_params_1 = OrderedDict()
             dummy_model_params_2 = OrderedDict()
             with torch.no_grad():
-                for layer_name, param in model.named_parameters():
-                    dummy_model_params_1.update({layer_name: param + delta})
-                    dummy_model_params_2.update({layer_name: param - delta})
+                for (layer_name, param), grad in zip(model.named_parameters(), v):
+                    dummy_model_params_1.update({layer_name: param + delta * grad})
+                    dummy_model_params_2.update({layer_name: param - delta * grad})
 
             model.load_state_dict(dummy_model_params_1, strict=False)
             logit_1 = model(x)
-            loss = self.criterion(logit_1, y)
-            grads_1 = torch.autograd.grad(loss, model.parameters())
+            # loss_1 = self.criterion(logit_1, y) / y.size(-1)
+            loss_1 = self.criterion(logit_1, y)
+            grads_1 = torch.autograd.grad(loss_1, model.parameters())
 
-            model.load_state_dict(dummy_model_params_1, strict=False)
+            model.load_state_dict(dummy_model_params_2, strict=False)
             logit_2 = model(x)
-            loss = self.criterion(logit_2, y)
-            grads_2 = torch.autograd.grad(loss, model.parameters())
+            loss_2 = self.criterion(logit_2, y)
+            # loss_2 = self.criterion(logit_2, y) / y.size(-1)
+            grads_2 = torch.autograd.grad(loss_2, model.parameters())
 
             model.load_state_dict(frz_model_params)
 
             grads = []
-            for u, v in zip(grads_1, grads_2):
-                grads.append((u - v) / (2 * delta))
+            with torch.no_grad():
+                for g1, g2 in zip(grads_1, grads_2):
+                    grads.append((g1 - g2) / (2 * delta))
             return grads
 
         else:
             logit = model(x)
+            # loss = self.criterion(logit, y) / y.size(-1)
             loss = self.criterion(logit, y)
             grads = torch.autograd.grad(loss, model.parameters())
             return grads
+
+    def pers_N_eval(self, global_model: torch.nn.Module, pers_epochs: int):
+        self.model.load_state_dict(global_model.state_dict())
+
+        loss_before, acc_before = utils.eval(
+            self.model, self.valloader, self.criterion, self.device
+        )
+        optimizer = torch.optim.SGD(self.model.parameters(), lr=self.alpha)
+        for _ in range(pers_epochs):
+            x, y = utils.get_data_batch(
+                self.trainloader, self.iter_trainloader, self.device
+            )
+            logit = self.model(x)
+            # loss = self.criterion(logit, y) / y.size(-1)
+            loss = self.criterion(logit, y)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        loss_after, acc_after = utils.eval(
+            self.model, self.valloader, self.criterion, self.device
+        )
+        self.logger.log(
+            f"client [{self.id}] [red]loss: (before) {loss_before:.4f} (after) {loss_after:.4f}   [green]acc: (before) {(acc_before * 100.0):.2f}% (after) {(acc_after * 100.0):.2f}%"
+        )
+        return {
+            "loss_before": loss_before,
+            "acc_before": acc_before,
+            "loss_after": loss_after,
+            "acc_after": acc_after,
+        }
 

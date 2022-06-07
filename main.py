@@ -4,20 +4,21 @@ import os
 from fedlab.utils.serialization import SerializationTool
 from fedlab.utils.aggregator import Aggregators
 from rich.console import Console
-from utils import get_args, init_random_seed
+from utils import get_args, fix_random_seed
 from model import get_model
 from perfedavg import PerFedAvgClient
 from data import get_client_id_indices
 
 # ================== Can not remove these modules ===================
-# these modules are imported for pickles.load deserializing properly.
+# these modules are imported for pickles.load deserializing properly when you're debugging.
 from data.cifar import CIFARDataset
 from data.mnist import MNISTDataset
+
 # ===================================================================
 
 if __name__ == "__main__":
     args = get_args()
-    init_random_seed(args.seed)
+    fix_random_seed(args.seed)
     if os.path.isdir("./log") == False:
         os.mkdir("./log")
     if args.gpu and torch.cuda.is_available():
@@ -26,7 +27,7 @@ if __name__ == "__main__":
         device = torch.device("cpu")
     global_model = get_model(args.dataset, device)
     logger = Console(record=True)
-    logger.log(log_locals=True)
+    logger.log(f"Arguments:", dict(args._get_kwargs()))
     clients_4_training, clients_4_eval, client_num_in_total = get_client_id_indices(
         args.dataset
     )
@@ -57,7 +58,7 @@ if __name__ == "__main__":
         model_params_cache = []
         # client local training
         for client_id in selected_clients:
-            serialized_model_params, _ = clients[client_id].train(
+            serialized_model_params = clients[client_id].train(
                 global_model=global_model,
                 hessian_free=args.hf,
                 eval_while_training=args.eval_while_training,
@@ -69,16 +70,15 @@ if __name__ == "__main__":
         SerializationTool.deserialize_model(global_model, aggregated_model_params)
 
     # eval
+    pers_epochs = args.local_epochs if args.pers_epochs == -1 else args.pers_epochs
     logger.log("=" * 20, "EVALUATION", "=" * 20, style="bold blue")
     loss_before = []
     loss_after = []
     acc_before = []
     acc_after = []
     for client_id in clients_4_eval:
-        stats = clients[client_id].eval(
-            global_model=global_model,
-            pers_epochs=args.pers_epochs,
-            hessian_free=args.hf,
+        stats = clients[client_id].pers_N_eval(
+            global_model=global_model, pers_epochs=args.pers_epochs,
         )
         loss_before.append(stats["loss_before"])
         loss_after.append(stats["loss_after"])
@@ -93,6 +93,6 @@ if __name__ == "__main__":
 
     algo = "HF" if args.hf else "FO"
     logger.save_html(
-        f"./log/{args.dataset}_{args.client_num_per_round}_{args.global_epochs}_{args.pers_epochs}_{algo}.html"
+        f"./log/{args.dataset}_{args.client_num_per_round}_{args.global_epochs}_{pers_epochs}_{algo}.html"
     )
 
