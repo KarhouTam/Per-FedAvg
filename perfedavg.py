@@ -93,6 +93,19 @@ class PerFedAvgClient:
 
         else:  # Per-FedAvg(FO)
             for _ in range(self.local_epochs):
+                # ========================== FedAvg ==========================
+                # NOTE: You can uncomment those codes for running FedAvg.
+                #       When you're trying to run FedAvg, comment other codes in this branch.
+
+                # data_batch = utils.get_data_batch(
+                #     self.trainloader, self.iter_trainloader, self.device
+                # )
+                # grads = self.compute_grad(self.model, data_batch)
+                # for param, grad in zip(self.model.parameters(), grads):
+                #     param.data.sub_(self.beta * grad)
+
+                # ============================================================
+
                 temp_model = deepcopy(self.model)
                 data_batch_1 = utils.get_data_batch(
                     self.trainloader, self.iter_trainloader, self.device
