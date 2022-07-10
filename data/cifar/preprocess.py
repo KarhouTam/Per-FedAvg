@@ -7,6 +7,7 @@ from fedlab.utils.dataset.slicing import noniid_slicing
 from torchvision.datasets import CIFAR10
 from torchvision import transforms
 from path import Path
+
 # from cifar import CIFARDataset
 
 current_dir = Path(__file__).parent.abspath()
@@ -21,9 +22,12 @@ class CIFARDataset(Dataset):
         self.targets = torch.stack(
             list(map(lambda tup: torch.tensor(tup[1], dtype=torch.long), subset))
         )
+        self.transform = transforms.Normalize(
+            (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
+        )
 
     def __getitem__(self, index):
-        return self.data[index], self.targets[index]
+        return self.transform(self.data[index]), self.targets[index]
 
     def __len__(self):
         return len(self.targets)
@@ -40,10 +44,8 @@ def preprocess(args):
     num_train_clients = int(args.client_num_in_total * args.fraction)
     num_test_clients = args.client_num_in_total - num_train_clients
 
-    cifar_train = CIFAR10(
-        current_dir, train=True, transform=transforms.ToTensor(), download=True,
-    )
-    cifar_test = CIFAR10(current_dir, train=False, transform=transforms.ToTensor(),)
+    cifar_train = CIFAR10(current_dir, train=True, download=True,)
+    cifar_test = CIFAR10(current_dir, train=False)
     train_idxs = noniid_slicing(
         cifar_train, num_train_clients, args.classes * num_train_clients,
     )

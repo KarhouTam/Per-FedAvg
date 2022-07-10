@@ -13,13 +13,15 @@ current_dir = Path(__file__).parent.abspath()
 import torch
 from torch.utils.data import Dataset
 
+
 class MNISTDataset(Dataset):
     def __init__(self, subset) -> None:
         self.data = torch.stack(list(map(lambda tup: tup[0], subset)))
         self.targets = torch.stack(list(map(lambda tup: torch.tensor(tup[1]), subset)))
+        self.transform = transforms.Normalize(0.1307, 0.3015)
 
     def __getitem__(self, index):
-        return self.data[index], self.targets[index]
+        return self.transform(self.data[index]), self.targets[index]
 
     def __len__(self):
         return len(self.targets)
@@ -35,21 +37,8 @@ def preprocess(args):
     num_train_clients = int(args.client_num_in_total * args.fraction)
     num_test_clients = args.client_num_in_total - num_train_clients
 
-    mnist_train = MNIST(
-        current_dir,
-        train=True,
-        transform=transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize(0.0, 1.0)]
-        ),
-        download=True,
-    )
-    mnist_test = MNIST(
-        current_dir,
-        train=False,
-        transform=transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize(0.0, 1.0)]
-        ),
-    )
+    mnist_train = MNIST(current_dir, train=True, download=True,)
+    mnist_test = MNIST(current_dir, train=False,)
     train_idxs = noniid_slicing(
         mnist_train, num_train_clients, args.classes * num_train_clients,
     )
