@@ -1,24 +1,23 @@
-# Per-FedAvg
-PyTorch Implementation of [Personalized federated learning with theoretical guarantees: A model-agnostic meta-learning approach](https://proceedings.neurips.cc/paper/2020/hash/24389bfe4fe2eba8bf9aa9203a44cdad-Abstract.html) [NIPS 2020]
+# Personalized federated learning with theoretical guarantees: A model-agnostic meta-learning approach [[NIPS 2020]](https://proceedings.neurips.cc/paper/2020/hash/24389bfe4fe2eba8bf9aa9203a44cdad-Abstract.html)
+
+PyTorch Implementation of Per-FedAvg.
 
 For simulating Non-I.I.D scenario, the dataset is split by labels and each client has only **two** classes of data.
 
 It’s just a toy demo for demonstrating algorithm, so take it easy. 🤣
 
 ## Requirements
+```
 torch~=1.10.2
-
 path~=16.4.0
-
 numpy~=1.21.2
-
 fedlab~=1.1.4
-
 torchvision~=0.11.3
-
 rich~=12.2.0
-
-
+```
+```
+pip install -r requirements.txt
+```
 ## Preprocess dataset
 
 MNIST and CIFAR-10 is prepared.🌟
@@ -49,7 +48,7 @@ python main.py
 
 `--local_epochs`: Num of local training rounds. Default: `4`
 
-`--pers_epochs`: Num of personalization rounds (while in evaluation phase). Default: `200`
+`--pers_epochs`: Num of personalization rounds (while in evaluation phase). Default: `1`
 
 `--dataset`: Name of experiment dataset. Default: `mnist`
 
@@ -63,7 +62,7 @@ python main.py
 
 `--gpu`: Non-zero value for using CUDA; `0` for using CPU. Default: `1`
 
-`--batch_size`: Batch size of client local dataset. Default: 40.
+`--batch_size`: Batch size of client local dataset. Default: `40`.
 
 `--eval_while_training`: Non-zero value for performing evaluation while in training phase. Default: `1`
 
@@ -71,4 +70,4 @@ python main.py
 
 `--hf`: Non-zero value for performing Per-FedAvg(HF); `0` for Per-FedAvg(FO). Default: `1`
 
-`--seed`: Random seed for init model parameters and selected clients.
+`--seed`: Random seed for init model parameters and selected clients. Default: `17`
