@@ -23,7 +23,7 @@ pip install -r requirements.txt
 MNIST and CIFAR-10 is prepared.🌟
 
 ```
-cd data/$dataset; python preprocess.py
+cd data; python preprocess.py
 ```
 
 The way of preprocessing is adjustable, more details in each dataset folder's `preprocess.py`.
@@ -71,3 +71,6 @@ python main.py
 `--hf`: Non-zero value for performing Per-FedAvg(HF); `0` for Per-FedAvg(FO). Default: `1`
 
 `--seed`: Random seed for init model parameters and selected clients. Default: `17`
+
+`--log`: Non-zero value for recording experiment's output to a `.html` file in `./log`. Default: `0`
+
