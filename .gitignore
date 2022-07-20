@@ -1,0 +1,18 @@
+# log folder
+log
+# python cache folder
+__pycache__
+
+# pickle folder
+pickles
+
+# raw data folder
+MNIST
+cifar-10-batches-py
+
+# file of recording partition results
+all_stats.json
+
+# configuration folder
+.idea
+.vscode
