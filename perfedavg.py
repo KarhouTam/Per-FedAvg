@@ -4,7 +4,7 @@ import utils
 from copy import deepcopy
 from typing import Tuple, Union
 from collections import OrderedDict
-from data import get_dataloader
+from data.utils import get_dataloader
 from fedlab.utils.serialization import SerializationTool
 
 
@@ -58,7 +58,13 @@ class PerFedAvgClient:
                 self.model, self.valloader, self.criterion, self.device
             )
             self.logger.log(
-                f"client [{self.id}] [red]loss: (before) {loss_before:.4f} (after) {loss_after:.4f}   [green]acc: (before) {(acc_before * 100.0):.2f}% (after) {(acc_after * 100.0):.2f}%"
+                "client [{}] [red]loss: {:.4f} -> {:.4f}   [blue]acc: {:.2f}% -> {:.2f}%".format(
+                    self.id,
+                    loss_before,
+                    loss_after,
+                    acc_before * 100.0,
+                    acc_after * 100.0,
+                )
             )
         return SerializationTool.serialize_model(self.model)
 
@@ -189,7 +195,9 @@ class PerFedAvgClient:
             self.model, self.valloader, self.criterion, self.device
         )
         self.logger.log(
-            f"client [{self.id}] [red]loss: (before) {loss_before:.4f} (after) {loss_after:.4f}   [green]acc: (before) {(acc_before * 100.0):.2f}% (after) {(acc_after * 100.0):.2f}%"
+            "client [{}] [red]loss: {:.4f} -> {:.4f}   [blue]acc: {:.2f}% -> {:.2f}%".format(
+                self.id, loss_before, loss_after, acc_before * 100.0, acc_after * 100.0,
+            )
         )
         return {
             "loss_before": loss_before,

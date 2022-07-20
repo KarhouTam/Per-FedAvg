@@ -47,6 +47,7 @@ def get_args():
         default=1,
         help="Non-zero value for performing local evaluation before and after local training",
     )
+    parser.add_argument("--log", type=int, default=0)
     return parser.parse_args()
 
 

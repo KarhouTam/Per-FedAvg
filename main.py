@@ -1,20 +1,18 @@
+import sys
+
+sys.path.append("data")
+
 import torch
 import random
 import os
 from fedlab.utils.serialization import SerializationTool
 from fedlab.utils.aggregator import Aggregators
 from rich.console import Console
+from rich.progress import track
 from utils import get_args, fix_random_seed
 from model import get_model
 from perfedavg import PerFedAvgClient
-from data import get_client_id_indices
-
-# ================== Can not remove these modules ===================
-# these modules are imported for pickles.load deserializing properly when you're debugging.
-from data.cifar import CIFARDataset
-from data.mnist import MNISTDataset
-
-# ===================================================================
+from data.utils import get_client_id_indices
 
 if __name__ == "__main__":
     args = get_args()
@@ -26,7 +24,7 @@ if __name__ == "__main__":
     else:
         device = torch.device("cpu")
     global_model = get_model(args.dataset, device)
-    logger = Console(record=True)
+    logger = Console(record=args.log)
     logger.log(f"Arguments:", dict(args._get_kwargs()))
     clients_4_training, clients_4_eval, client_num_in_total = get_client_id_indices(
         args.dataset
@@ -51,7 +49,9 @@ if __name__ == "__main__":
     ]
     # training
     logger.log("=" * 20, "TRAINING", "=" * 20, style="bold red")
-    for _ in range(args.global_epochs):
+    for _ in track(
+        range(args.global_epochs), "Training...", console=logger, disable=args.log
+    ):
         # select clients
         selected_clients = random.sample(clients_4_training, args.client_num_per_round)
 
@@ -68,7 +68,7 @@ if __name__ == "__main__":
         # aggregate model parameters
         aggregated_model_params = Aggregators.fedavg_aggregate(model_params_cache)
         SerializationTool.deserialize_model(global_model, aggregated_model_params)
-
+        logger.log("=" * 60)
     # eval
     pers_epochs = args.local_epochs if args.pers_epochs == -1 else args.pers_epochs
     logger.log("=" * 20, "EVALUATION", "=" * 20, style="bold blue")
@@ -76,7 +76,9 @@ if __name__ == "__main__":
     loss_after = []
     acc_before = []
     acc_after = []
-    for client_id in clients_4_eval:
+    for client_id in track(
+        clients_4_eval, "Evaluating...", console=logger, disable=args.log
+    ):
         stats = clients[client_id].pers_N_eval(
             global_model=global_model, pers_epochs=args.pers_epochs,
         )
@@ -91,8 +93,9 @@ if __name__ == "__main__":
     logger.log(f"loss_after_pers: {(sum(loss_after) / len(loss_after)):.4f}")
     logger.log(f"acc_after_pers: {(sum(acc_after) * 100.0 / len(acc_after)):.2f}%")
 
-    algo = "HF" if args.hf else "FO"
-    logger.save_html(
-        f"./log/{args.dataset}_{args.client_num_per_round}_{args.global_epochs}_{pers_epochs}_{algo}.html"
-    )
+    if args.log:
+        algo = "HF" if args.hf else "FO"
+        logger.save_html(
+            f"./log/{args.dataset}_{args.client_num_per_round}_{args.global_epochs}_{pers_epochs}_{algo}.html"
+        )
 
