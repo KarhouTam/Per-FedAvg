@@ -104,8 +104,8 @@ def preprocess(args: Namespace) -> None:
 def randomly_alloc_classes(
     ori_dataset: Dataset,
     target_dataset: Dataset,
-    num_clients,
-    num_classes,
+    num_clients: int,
+    num_classes: int,
     transform=None,
     target_transform=None,
 ) -> Tuple[List[Dataset], Dict[str, Dict[str, int]]]:
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--classes",
         type=int,
-        default=-1,
+        default=2,
         help="Num of classes that one client's data belong to.",
     )
     parser.add_argument("--seed", type=int, default=0)
