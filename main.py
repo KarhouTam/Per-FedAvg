@@ -80,7 +80,7 @@ if __name__ == "__main__":
         clients_4_eval, "Evaluating...", console=logger, disable=args.log
     ):
         stats = clients[client_id].pers_N_eval(
-            global_model=global_model, pers_epochs=args.pers_epochs,
+            global_model=global_model, pers_epochs=pers_epochs,
         )
         loss_before.append(stats["loss_before"])
         loss_after.append(stats["loss_after"])
