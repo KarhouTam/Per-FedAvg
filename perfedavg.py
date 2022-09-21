@@ -91,7 +91,7 @@ class PerFedAvgClient:
                 grads_2nd = self.compute_grad(
                     self.model, data_batch_3, v=grads_1st, second_order_grads=True
                 )
-
+                # NOTE: Go check https://github.com/KarhouTam/Per-FedAvg/issues/2 if you confuse about the model update.
                 for param, grad1, grad2 in zip(
                     self.model.parameters(), grads_1st, grads_2nd
                 ):
