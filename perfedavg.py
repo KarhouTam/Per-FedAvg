@@ -40,6 +40,15 @@ class PerFedAvgClient:
         )
         self.iter_trainloader = iter(self.trainloader)
 
+    def get_data_batch(self):
+        try:
+            x, y = next(self.iter_trainloader)
+        except StopIteration:
+            self.iter_trainloader = iter(self.trainloader)
+            x, y = next(self.iter_trainloader)
+
+        return x.to(self.device), y.to(self.device)
+
     def train(
         self,
         global_model: torch.nn.Module,
@@ -72,21 +81,15 @@ class PerFedAvgClient:
         if hessian_free:  # Per-FedAvg(HF)
             for _ in range(self.local_epochs):
                 temp_model = deepcopy(self.model)
-                data_batch_1 = utils.get_data_batch(
-                    self.trainloader, self.iter_trainloader, self.device
-                )
+                data_batch_1 = self.get_data_batch()
                 grads = self.compute_grad(temp_model, data_batch_1)
                 for param, grad in zip(temp_model.parameters(), grads):
                     param.data.sub_(self.alpha * grad)
 
-                data_batch_2 = utils.get_data_batch(
-                    self.trainloader, self.iter_trainloader, self.device
-                )
+                data_batch_2 = self.get_data_batch()
                 grads_1st = self.compute_grad(temp_model, data_batch_2)
 
-                data_batch_3 = utils.get_data_batch(
-                    self.trainloader, self.iter_trainloader, self.device
-                )
+                data_batch_3 = self.get_data_batch()
 
                 grads_2nd = self.compute_grad(
                     self.model, data_batch_3, v=grads_1st, second_order_grads=True
@@ -103,9 +106,7 @@ class PerFedAvgClient:
                 # NOTE: You can uncomment those codes for running FedAvg.
                 #       When you're trying to run FedAvg, comment other codes in this branch.
 
-                # data_batch = utils.get_data_batch(
-                #     self.trainloader, self.iter_trainloader, self.device
-                # )
+                # data_batch = self.get_data_batch()
                 # grads = self.compute_grad(self.model, data_batch)
                 # for param, grad in zip(self.model.parameters(), grads):
                 #     param.data.sub_(self.beta * grad)
@@ -113,17 +114,13 @@ class PerFedAvgClient:
                 # ============================================================
 
                 temp_model = deepcopy(self.model)
-                data_batch_1 = utils.get_data_batch(
-                    self.trainloader, self.iter_trainloader, self.device
-                )
+                data_batch_1 = self.get_data_batch()
                 grads = self.compute_grad(temp_model, data_batch_1)
 
                 for param, grad in zip(temp_model.parameters(), grads):
                     param.data.sub_(self.alpha * grad)
 
-                data_batch_2 = utils.get_data_batch(
-                    self.trainloader, self.iter_trainloader, self.device
-                )
+                data_batch_2 = self.get_data_batch()
                 grads = self.compute_grad(temp_model, data_batch_2)
 
                 for param, grad in zip(self.model.parameters(), grads):
@@ -149,14 +146,12 @@ class PerFedAvgClient:
 
             model.load_state_dict(dummy_model_params_1, strict=False)
             logit_1 = model(x)
-            # loss_1 = self.criterion(logit_1, y) / y.size(-1)
             loss_1 = self.criterion(logit_1, y)
             grads_1 = torch.autograd.grad(loss_1, model.parameters())
 
             model.load_state_dict(dummy_model_params_2, strict=False)
             logit_2 = model(x)
             loss_2 = self.criterion(logit_2, y)
-            # loss_2 = self.criterion(logit_2, y) / y.size(-1)
             grads_2 = torch.autograd.grad(loss_2, model.parameters())
 
             model.load_state_dict(frz_model_params)
@@ -169,7 +164,6 @@ class PerFedAvgClient:
 
         else:
             logit = model(x)
-            # loss = self.criterion(logit, y) / y.size(-1)
             loss = self.criterion(logit, y)
             grads = torch.autograd.grad(loss, model.parameters())
             return grads
@@ -182,11 +176,8 @@ class PerFedAvgClient:
         )
         optimizer = torch.optim.SGD(self.model.parameters(), lr=self.alpha)
         for _ in range(pers_epochs):
-            x, y = utils.get_data_batch(
-                self.trainloader, self.iter_trainloader, self.device
-            )
+            x, y = self.get_data_batch()
             logit = self.model(x)
-            # loss = self.criterion(logit, y) / y.size(-1)
             loss = self.criterion(logit, y)
             optimizer.zero_grad()
             loss.backward()
@@ -196,7 +187,7 @@ class PerFedAvgClient:
         )
         self.logger.log(
             "client [{}] [red]loss: {:.4f} -> {:.4f}   [blue]acc: {:.2f}% -> {:.2f}%".format(
-                self.id, loss_before, loss_after, acc_before * 100.0, acc_after * 100.0,
+                self.id, loss_before, loss_after, acc_before * 100.0, acc_after * 100.0
             )
         )
         return {
@@ -205,4 +196,3 @@ class PerFedAvgClient:
             "loss_after": loss_after,
             "acc_after": acc_after,
         }
-

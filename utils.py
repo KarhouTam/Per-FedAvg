@@ -74,20 +74,6 @@ def eval(
     return total_loss, acc / num_samples
 
 
-def get_data_batch(
-    dataloader: torch.utils.data.DataLoader,
-    iterator: Iterator,
-    device=torch.device("cpu"),
-):
-    try:
-        x, y = next(iterator)
-    except StopIteration:
-        iterator = iter(dataloader)
-        x, y = next(iterator)
-
-    return x.to(device), y.to(device)
-
-
 def fix_random_seed(seed: int):
     torch.cuda.empty_cache()
     torch.manual_seed(seed)
